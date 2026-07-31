@@ -1,0 +1,5 @@
+board: waveshare_ESP32_S3_Touch_LCD_1_46
+chip: esp32s3
+version: 1.0.0
+description: "Waveshare ESP32-S3-Touch-LCD-1.46 development board"
+manufacturer: "Waveshare"

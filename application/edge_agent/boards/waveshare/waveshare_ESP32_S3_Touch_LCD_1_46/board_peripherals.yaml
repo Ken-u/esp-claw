@@ -1,0 +1,87 @@
+version: 1.0.0
+# Peripherals Configuration for Waveshare ESP32-S3-Touch-LCD-1.46
+#
+# Pin map from Waveshare wiki / official ESP-IDF demo:
+#   I2C:        SDA=GPIO11, SCL=GPIO10
+#   QSPI LCD:   DATA0=46, DATA1=45, DATA2=42, DATA3=41, SCK=40, CS=21, BL=5, TE=18
+#   PCM5101:    BCK=48, LRCK=38, DIN=47
+#   MIC:        SCK=15, WS=2, SD=39
+#   SDMMC 1-bit: CLK=14, CMD=17, D0=16
+
+peripherals:
+  # Shared I2C bus: TCA9554, SPD2010 touch, QMI8658, PCF85063.
+  - name: i2c_master
+    type: i2c
+    role: master
+    config:
+      port: 0
+      pins:
+        sda: 11
+        scl: 10
+
+  # PCM5101 speaker DAC on I2S1 (no MCLK).
+  - name: i2s_audio_out
+    type: i2s
+    role: master
+    format: std-out
+    config:
+      port: 1
+      sample_rate_hz: 16000
+      mclk_multiple: 256
+      data_bit_width: 16
+      slot_bit_width: I2S_SLOT_BIT_WIDTH_AUTO
+      slot_mode: I2S_SLOT_MODE_MONO
+      slot_mask: I2S_STD_SLOT_LEFT
+      ws_width: 16
+      pins:
+        mclk: -1
+        bclk: 48
+        ws: 38
+        dout: 47
+        din: -1
+
+  # Onboard I2S MEMS microphone on I2S0.
+  - name: i2s_audio_in
+    type: i2s
+    role: master
+    format: std-in
+    config:
+      port: 0
+      sample_rate_hz: 16000
+      mclk_multiple: 256
+      data_bit_width: 16
+      slot_bit_width: I2S_SLOT_BIT_WIDTH_AUTO
+      slot_mode: I2S_SLOT_MODE_MONO
+      slot_mask: I2S_STD_SLOT_LEFT
+      ws_width: 16
+      pins:
+        mclk: -1
+        bclk: 15
+        ws: 2
+        dout: -1
+        din: 39
+
+  # SPD2010 QSPI display bus.
+  - name: spi_display
+    type: spi
+    role: master
+    config:
+      spi_bus_config:
+        spi_port: SPI2_HOST
+        data0_io_num: 46
+        data1_io_num: 45
+        data2_io_num: 42
+        data3_io_num: 41
+        sclk_io_num: 40
+        max_transfer_sz: 339488
+
+  # LCD backlight PWM on GPIO5, active high.
+  - name: ledc_backlight
+    type: ledc
+    role: none
+    config:
+      gpio_num: 5
+      freq_hz: 5000
+      duty: 0
+      duty_resolution: LEDC_TIMER_13_BIT
+      output_invert: false

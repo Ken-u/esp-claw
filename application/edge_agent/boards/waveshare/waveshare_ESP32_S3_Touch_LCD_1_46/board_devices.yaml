@@ -1,0 +1,169 @@
+version: 1.0.0
+# Devices Configuration for Waveshare ESP32-S3-Touch-LCD-1.46
+#
+# Display/touch: SPD2010 over QSPI + I2C (412x412)
+# Audio: PCM5101 DAC + I2S MIC (no codec IC)
+# IO expander: TCA9554PWR — EXIO1=TP_RST, EXIO2=LCD_RST, EXIO3=SD_CS
+
+devices:
+  # TCA9554PWR: LCD/touch reset and SD CS live on expander pins.
+  - name: gpio_expander
+    chip: tca9554
+    type: gpio_expander
+    version: default
+    dependencies:
+      espressif/esp_io_expander_tca9554:
+        version: "*"
+        require: public
+    config:
+      max_pins: 8
+      # EXIO1=TP_RST, EXIO2=LCD_RST, EXIO3=SD_CS — leave deasserted high after reset pulse.
+      output_io_mask: [0, 1, 2]
+      output_io_level_mask: [1, 1, 1]
+    peripherals:
+      - name: i2c_master
+        i2c_addr: [0x40]   # 8-bit for TCA9554 ADDRESS_000 (7-bit 0x20)
+
+  # PCM5101 speaker path (bare I2S DAC, no control bus).
+  - name: audio_dac
+    chip: internal
+    type: audio_codec
+    version: default
+    config:
+      adc_enabled: false
+      dac_enabled: true
+      dac_max_channel: 1
+      dac_channel_mask: "1"
+      dac_init_gain: 0
+      mclk_enabled: false
+    peripherals:
+      - name: i2s_audio_out
+
+  # Onboard I2S microphone (bare I2S ADC path, no codec IC).
+  - name: audio_adc
+    chip: internal
+    type: audio_codec
+    version: default
+    config:
+      adc_enabled: true
+      dac_enabled: false
+      adc_max_channel: 1
+      adc_channel_mask: "1"
+      adc_init_gain: 0
+      mclk_enabled: false
+    peripherals:
+      - name: i2s_audio_in
+
+  # microSD slot, wired as 1-bit SDMMC in Waveshare's ESP-IDF demo.
+  - name: fs_sdcard
+    type: fs_fat
+    sub_type: sdmmc
+    version: default
+    depends_on: [gpio_expander]
+    config:
+      vfs_config:
+        format_if_mount_failed: false
+        max_files: 5
+      sub_config:
+        bus_width: 1
+        pins:
+          clk: 14
+          cmd: 17
+          d0: 16
+
+  # 1.46-inch 412x412 TFT, SPD2010 over QSPI.
+  - name: display_lcd
+    chip: spd2010
+    type: display_lcd
+    sub_type: spi
+    version: default
+    depends_on: gpio_expander
+    dependencies:
+      espressif/esp_lcd_spd2010: "*"
+    config:
+      x_max: 412
+      y_max: 412
+      swap_xy: false
+      mirror_x: false
+      mirror_y: false
+      io_spi_config:
+        cs_gpio_num: 21
+        dc_gpio_num: -1
+        spi_mode: 0
+        pclk_hz: 80000000
+        lcd_cmd_bits: 32
+        lcd_param_bits: 8
+        flags:
+          quad_mode: true
+      lcd_panel_config:
+        reset_gpio_num: -1
+        rgb_ele_order: LCD_RGB_ELEMENT_ORDER_RGB
+        bits_per_pixel: 16
+        data_endian: LCD_RGB_DATA_ENDIAN_BIG
+        vendor_config: NULL
+    peripherals:
+      - name: spi_display
+
+  # Capacitive touch controller integrated in SPD2010.
+  - name: lcd_touch
+    chip: spd2010
+    type: lcd_touch
+    sub_type: i2c
+    version: default
+    depends_on: [gpio_expander, display_lcd]
+    dependencies:
+      esp_lcd_touch:
+        version: "*"
+        require: public
+      espressif/esp_lcd_touch_spd2010: "*"
+    config:
+      io_i2c_config:
+        scl_speed_hz: 400000
+        lcd_cmd_bits: 0
+        flags:
+          disable_control_phase: true
+      touch_config:
+        x_max: 412
+        y_max: 412
+        rst_gpio_num: -1
+        int_gpio_num: 4
+    peripherals:
+      - name: i2c_master
+        i2c_addr: [0xA6]   # 8-bit for SPD2010 touch (7-bit 0x53)
+
+  - name: lcd_brightness
+    type: ledc_ctrl
+    depends_on: [gpio_expander, display_lcd]
+    version: default
+    config:
+      default_percent: 70
+    peripherals:
+      - name: ledc_backlight
+
+  # Metadata for the onboard QMI8658. ESP-Claw does not yet include a QMI8658
+  # lua_module_imu backend, so this is intentionally not auto-initialized.
+  - name: imu_sensor
+    chip: qmi8658
+    type: custom
+    version: 1.0.0
+    init_skip: true
+    config:
+      i2c_addr: 0x6b
+      frequency: 400000
+      int1_gpio_num: -1
+      int2_gpio_num: -1
+    peripherals:
+      - name: i2c_master
+
+  # Metadata for the onboard PCF85063 RTC.
+  - name: rtc_pcf85063
+    chip: pcf85063
+    type: custom
+    version: 1.0.0
+    init_skip: true
+    config:
+      i2c_addr: 0x51
+      frequency: 400000
+      int_gpio_num: 9
+    peripherals:
+      - name: i2c_master
